@@ -1,61 +1,94 @@
 # Phase 1: Foundation & Authentication
 
-## 1. Explain the Concept
-We need a secure way to verify users (Authentication) and ensure they have the right permissions (Authorization). We will use **JWT (JSON Web Tokens)** to keep the server stateless—we don't need to store login sessions in the database. For registration, we will use **OTP (One-Time Password)** to verify the user's email or phone number.
+## 1. Concept
+Every production system starts with a hardened foundation. This phase establishes the Express server, MongoDB connection, error handling, and a **multi-strategy authentication system** using JWT + OTP.
 
-## 2. Why design it this way?
-- **Stateless JWT**: Very scalable. The token itself contains the user's identity proof. We don't need to query the database on every single request just to know who the user is.
-- **OTP Verification**: Prevents bots from creating fake accounts and ensures the user owns the provided contact method.
-- **Controller-Service-Repository Pattern**: Keeps the code clean. If we ever want to switch from MongoDB to PostgreSQL, we only change the Repository layer. The Service and Controller layers remain untouched.
+We use two tokens:
+- **Access Token** (short-lived: 15 minutes): Passed with every API request.
+- **Refresh Token** (long-lived: 30 days): Stored in an HTTP-only cookie, used to silently rotate access tokens without re-login.
 
-## 3. Database Schema (MongoDB Modeling)
-**User Schema (`user.model.js`)**
-- `email` (String, unique, required)
-- `password` (String, hashed, required)
-- `isVerified` (Boolean, default: false)
-- `mode` (Enum: ['Personal', 'Social'], default: 'Personal')
-- `otp` (String, hashed or plain, for verification)
-- `otpExpiry` (Date)
-- timestamps...
+OTP is used for both registration email verification and as a 2FA mechanism in sensitive actions.
 
-## 4. API Structure
-- `POST /api/v1/auth/register` -> Sends OTP to email.
-- `POST /api/v1/auth/verify-otp` -> Verifies OTP, marks user as `isVerified`, returns JWT.
-- `POST /api/v1/auth/login` -> Verifies email/password, returns JWT.
+## 2. Why this design?
+- **Stateless JWTs** scale horizontally without session stores.
+- **Dual-token strategy** balances security (short expiry) with user experience (no frequent logouts).
+- **OTP over SMS/Email** prevents bot-created accounts.
+- **Repository Pattern** makes auth logic unit-testable without a live DB.
+
+## 3. Database Schema
+
+### `users` collection
+```js
+{
+  _id: ObjectId,
+  email: { type: String, unique: true, lowercase: true, trim: true },
+  password: { type: String, select: false }, // auto-excluded from queries
+  username: { type: String, unique: true, lowercase: true, trim: true },
+  role: { type: String, enum: ['user', 'creator', 'admin', 'superadmin'], default: 'user' },
+  isVerified: { type: Boolean, default: false },
+  isBanned: { type: Boolean, default: false },
+  refreshToken: { type: String, select: false },
+  otp: { type: String, select: false },
+  otpExpiry: { type: Date },
+  createdAt, updatedAt
+}
+```
+
+### `otps` collection (optional — Redis TTL preferred)
+Store OTPs in Redis with a TTL of 5 minutes instead of MongoDB to avoid unnecessary write load.
+
+## 4. API Design
+
+| Method | Route | Description |
+|---|---|---|
+| POST | `/api/v1/auth/register` | Register with email + password → Send OTP |
+| POST | `/api/v1/auth/verify-otp` | Verify OTP → Mark user as verified |
+| POST | `/api/v1/auth/login` | Authenticate → Return access + refresh tokens |
+| POST | `/api/v1/auth/refresh-token` | Rotate access token via refresh token |
+| POST | `/api/v1/auth/logout` | Clear refresh token from DB + cookie |
+| POST | `/api/v1/auth/forgot-password` | Send reset OTP |
+| POST | `/api/v1/auth/reset-password` | Reset password using OTP |
+| POST | `/api/v1/auth/resend-otp` | Resend OTP (rate-limited) |
 
 ## 5. Folder Structure
 ```text
 src/
-├── controllers/
-│   └── auth.controller.js
-├── services/
-│   └── auth.service.js
-├── repositories/
-│   └── user.repository.js
-├── models/
-│   └── user.model.js
-├── routes/
-│   └── auth.routes.js
+├── models/user.model.js
+├── repositories/user.repository.js
+├── services/auth.service.js
+├── controllers/auth.controller.js
+├── routes/auth.routes.js
 ├── middlewares/
-│   ├── auth.middleware.js
-│   └── error.middleware.js
+│   ├── auth.middleware.js     # verifyJWT
+│   └── error.middleware.js    # global error handler
 └── utils/
+    ├── ApiError.js
+    ├── ApiResponse.js
+    ├── AsyncHandler.js
     ├── jwt.util.js
-    └── email.util.js
+    └── otp.util.js
 ```
 
 ## 6. Security Considerations
-- **Password Hashing**: Use `bcrypt` to hash passwords before saving them to the DB. Need 10-12 salt rounds.
-- **Refresh Tokens**: Access tokens should have a short lifespan (e.g., 15 mins). Refresh tokens (longer lifespan) should be stored securely (e.g., HTTP-only cookies) to get new access tokens.
-- **OTP Security**: OTPs must expire (e.g., in 5 minutes). Implement rate limiting so attackers can't spam OTP requests.
+- Hash passwords with **bcrypt** (salt rounds: 12).
+- Never return `password`, `refreshToken`, `otp` in API responses. Use `.select('-password')`.
+- Rate-limit `/auth/login` and `/auth/resend-otp` — max 5 requests per 15 minutes per IP.
+- Use **HTTP-only, Secure, SameSite=Strict** cookies for refresh tokens.
+- Validate all inputs with Zod schemas.
 
-## 7. Implementation Steps (Next Actions)
-1. Initialize the Node.js project (`npm init -y`).
-2. Install dependencies (`express`, `mongoose`, `jsonwebtoken`, `bcrypt`, `dotenv`, `nodemailer`).
-3. Set up the basic Express server and connect to MongoDB.
-4. Implement the User schema.
-5. Build the Repository, Service, and Controller for Auth.
-6. Connect the Routes and test with Postman/Insomnia.
+## 7. Implementation Steps
+1. Install: `bcrypt`, `jsonwebtoken`, `nodemailer`, `express-rate-limit`, `zod`.
+2. Create `user.model.js`.
+3. Create `user.repository.js` (findByEmail, createUser, updateRefreshToken).
+4. Create `auth.service.js` (registerUser, verifyOtp, loginUser, refreshAccessToken).
+5. Create `auth.controller.js` + `auth.routes.js`.
+6. Create validation Zod schemas (`register.schema.js`, `login.schema.js`).
+7. Create `validate.middleware.js` to auto-validate request bodies.
+8. Create global `error.middleware.js`.
+9. Test all flows with Postman.
 
 ## 8. Advanced Improvements
-- Implement a Redis cache to store OTPs instead of storing them in the MongoDB User schema. This reduces write operations to the main database and naturally handles TTL (Time To Live).
+- **OAuth2**: Add Google/GitHub login via Passport.js.
+- **Redis OTP store**: OTPs stored with TTL in Redis instead of MongoDB.
+- **Device/Session tracking**: Store device fingerprints with refresh tokens to detect suspicious logins.
+- **Audit Logs**: Record login timestamps and IP addresses for compliance.

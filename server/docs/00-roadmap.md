@@ -1,22 +1,38 @@
-# Server-Side Roadmap: Social Networking App
+# Onnec — SaaS Social Platform: Server Roadmap
 
-Building a scalable backend requires a structured approach. We will follow the **Controller-Service-Repository** pattern. This separates concerns:
-- **Routes**: Define API endpoints.
-- **Controllers**: Handle HTTP requests and responses.
-- **Services**: Contain business logic.
-- **Repositories**: Handle database operations.
+## What makes Onnec unique?
 
-## Phases
+Onnec is not just another social networking app. It is a **dual-mode SaaS social platform** where users can operate in:
+- **Personal Mode**: A private, curated digital identity for personal relationships and networking.
+- **Social/Creator Mode**: A public-facing profile with follower ecosystems, content monetization, and community tools.
 
-1. **Phase 1: Foundation & Authentication** (`01-auth.md`)
-   - Express Setup, Error Handling, MongoDB Schema, JWT + OTP Authentication.
-2. **Phase 2: Profiles & Social Graph** (`02-profiles-social.md`)
-   - User modes (Personal/Social), Profile Schema, Follow/Unfollow systems.
-3. **Phase 3: Real-Time Messaging** (`03-realtime-chat.md`)
-   - Socket.io integration, One-on-one and Group Chat schemas.
-4. **Phase 4: Payment Gateway** (`04-payments.md`)
-   - Stripe/Razorpay integration, Webhooks, Subscription schemas.
-5. **Phase 5: Optimization & Deployment** (`05-optimization-deployment.md`)
-   - Redis caching, indexing, Dockerization, and basic CI/CD.
+The platform is designed as a **multi-tenant SaaS** product. Businesses, communities, or creator agencies can set up their own "workspace" on Onnec, with their own branding, user base, and revenue management — all powered by the same core backend.
 
-We will proceed phase by phase. For each feature, consult the respective documentation file.
+---
+
+## Architecture Principles
+- **Controller → Service → Repository**: Clean separation of HTTP, business logic, and data layers.
+- **Event-Driven Architecture**: Use internal event emitters / message queues to decouple side-effects (emails, notifications, analytics).
+- **Security-First**: Rate limiting, CSRF, injection protection, Helmet, input sanitization on every layer.
+- **Observability**: Structured logging (Winston), error monitoring (Sentry), metrics (Prometheus/Datadog integration-ready).
+
+---
+
+## Server-Side Phases
+
+| Phase | Feature Area | Folder |
+|---|---|---|
+| 1 | Foundation: Project Setup & Auth | `01-auth.md` |
+| 2 | Identity: User Profile & Mode System | `02-profiles-modes.md` |
+| 3 | Social Graph: Connections & Feed | `03-social-graph.md` |
+| 4 | Real-Time: Chat & Notifications | `04-realtime.md` |
+| 5 | Content: Posts, Media & Discovery | `05-content.md` |
+| 6 | Monetization: Subscriptions & Payments | `06-monetization.md` |
+| 7 | Admin & SaaS: Tenant Management | `07-saas-admin.md` |
+| 8 | Platform Intelligence: AI & Analytics | `08-ai-analytics.md` |
+| 9 | Optimization & Deployment | `09-optimization-deployment.md` |
+
+---
+
+> We build server phases 1–9 completely before starting the client side.
+> Each phase doc outlines: Concept → DB Schema → API Design → Security → Implementation steps → Advanced improvements.
