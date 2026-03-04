@@ -54,8 +54,7 @@ Store OTPs in Redis with a TTL of 5 minutes instead of MongoDB to avoid unnecess
 ```text
 src/
 ├── models/user.model.js
-├── repositories/user.repository.js
-├── services/auth.service.js
+├── services/user.service.js
 ├── controllers/auth.controller.js
 ├── routes/auth.routes.js
 ├── middlewares/
