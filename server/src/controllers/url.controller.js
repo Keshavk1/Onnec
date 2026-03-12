@@ -29,7 +29,12 @@ const redirectUrl = AsyncHandler(async (req, res) => {
 
 const getUrlStats = AsyncHandler(async (req, res) => {
     const { shortCode } = req.params;
-    // Implementation for stats...
+
+    const stats = await urlService.getUrlStats(shortCode);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, stats, 'URL stats retrieved successfully'));
 });
 
 export { shortenUrl, redirectUrl, getUrlStats };
