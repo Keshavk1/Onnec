@@ -52,6 +52,71 @@ A high-performance Node.js application showcasing advanced system design concept
                        └─────────────────┘             │
 ```
 
+### 🔴 Redis Usage Throughout Onnec
+
+**Redis is used extensively across ALL major components** of Onnec for high-performance, real-time operations:
+
+#### 1. **Rate Limiter** ⚡
+- **Sliding Window Algorithm**: Uses Redis sorted sets (ZSET) for O(log N) operations
+- **Atomic Operations**: Multi-command transactions ensure consistency
+- **Distributed Counting**: Shared state across multiple server instances
+- **TTL Management**: Automatic cleanup of expired rate limit windows
+
+```redis
+# Rate limiter data structure
+ZADD rate_limit:user123 1642771200000 "1642771200000-0.123"
+ZREMRANGEBYSCORE rate_limit:user123 0 1642771140000
+ZCARD rate_limit:user123
+EXPIRE rate_limit:user123 60
+```
+
+#### 2. **URL Shortener** 🔗
+- **O(1) Redirection**: Direct key-value lookups for instant redirects
+- **Distributed Counter**: Atomic increment for unique short code generation
+- **Cache Warming**: Pre-populate frequently accessed URLs
+- **TTL-based Expiration**: Automatic cache invalidation
+
+```redis
+# URL shortener data structures
+SET url:1a "https://example.com/very/long/url" EX 3600
+INCR url_counter
+SETEX url:2b "https://another-site.com" 7200
+```
+
+#### 3. **Chat System** 💬
+- **Online Presence**: Real-time user status tracking with TTL
+- **Chat Room Management**: Redis sets for room membership
+- **Session Persistence**: Cross-server socket connection tracking
+- **Message Caching**: Recent message history for quick loading
+
+```redis
+# Chat system data structures
+SET user_status:user123 "online" EX 300
+SADD chat_users:chat456 user123 user456 user789
+SISMEMBER chat_users:chat456 user123
+SET chat_messages:chat456:0:50 "[{...messages...}]" EX 1800
+```
+
+### Why Redis? 🤔
+
+#### **Performance Benefits**
+- **Sub-millisecond latency** for most operations
+- **In-memory storage** eliminates disk I/O bottlenecks
+- **Atomic operations** prevent race conditions
+- **Built-in data structures** (sets, sorted sets, hashes) optimized for specific use cases
+
+#### **Scalability Advantages**
+- **Shared state** across multiple application instances
+- **Horizontal scaling** without session affinity requirements
+- **Pub/Sub capabilities** for real-time event distribution
+- **Efficient memory usage** with automatic expiration
+
+#### **Reliability Features**
+- **Persistence options** (RDB/AOF) for data durability
+- **Replication** for high availability
+- **Cluster mode** for horizontal scaling
+- **Graceful degradation** when Redis is unavailable
+
 ### Technology Stack
 - **Runtime**: Node.js with ES Modules
 - **Framework**: Express.js
